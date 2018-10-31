@@ -1,7 +1,8 @@
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.TreeSet;
 
-public class BottleList {
+public class BottleList implements Serializable {
 	private ArrayList <BottleEntry> list;
 	private TreeSet <String> types;
 
@@ -17,5 +18,9 @@ public class BottleList {
 		if (!types.contains(entry.getType())) {
 			types.add(entry.getType());
 		}
+	}
+
+	public BottleEntry[] getBottleArray() {
+		return list.toArray(new BottleEntry[list.size()]);
 	}
 }
