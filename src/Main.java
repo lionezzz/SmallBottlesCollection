@@ -17,7 +17,7 @@ public class Main {
 		} else {
 			list = new BottleList();
 		}
-		MainFrame frame = new MainFrame();
-		frame.startUp(list);
+		MainFrame frame = new MainFrame(list);
+		frame.startUp();
 	}
 }

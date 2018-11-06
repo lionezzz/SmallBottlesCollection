@@ -8,7 +8,7 @@ public class BottleEntry  implements Serializable {
 
 	public BottleEntry(String n, String t, String c, String p) {
 		name = n;
-		type = t;
+		type = t.toLowerCase();
 		comment = c;
 		image = p;
 	}
@@ -21,8 +21,10 @@ public class BottleEntry  implements Serializable {
 
 	public String getComment() { return comment; }
 
-	public String toString() {
-		return name;
-	}
+	public String toString() { return name + " (" + type + ")";	}
 
+	public boolean equals(BottleEntry bottle) {
+		return (bottle != null && name.equals(bottle.getName()) && type.equals(bottle.getType())
+				&& comment.equals(bottle.getComment()) && image.equals(bottle.getImage()));
+	}
 }

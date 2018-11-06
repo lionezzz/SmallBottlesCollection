@@ -5,27 +5,27 @@ public class ImagePanel extends JPanel {
 
 	private Image image;
 
-	public ImagePanel() {
-		image = null;
-	}
-
-	public ImagePanel(String location) {
-		image = new ImageIcon(location).getImage();
-	}
-
-	public ImagePanel(GridLayout grid) { //УДОЛИ!!!!!!!!!!!!!!!
-		super(grid);
-	}
+	public ImagePanel() { image = null; }
 
 	public void paintComponent(Graphics g) {
-		if (image == null) {
-			g.setColor(Color.GRAY);
-			g.fillRect(0,0, this.getWidth(), this.getHeight());
-		} else {
-			g.drawImage(image, 0,0,this);
+		g.setColor(Color.GRAY);
+		g.fillRect(0,0, this.getWidth(), this.getHeight());
+		if (image != null) {
+			g.drawImage(image, (this.getWidth() - image.getWidth(this)) / 2,
+					(this.getHeight() - image.getHeight(this)) / 2,this);
 		}
-
-
-
 	}
+
+	public void setImage(String location, int newWidth, int newHeight) {
+		image = new ImageIcon(location).getImage();
+		double newScale = (double) newWidth / newHeight;
+		double scale = (double)image.getWidth(this) / image.getHeight(this);
+		if (newScale > scale) {
+			image = image.getScaledInstance((int) (newHeight * scale), newHeight, Image.SCALE_DEFAULT);
+		} else {
+			image = image.getScaledInstance(newWidth, (int) (newWidth / scale), Image.SCALE_DEFAULT);
+		}
+	}
+
+	public void setNullImage() { image = null; }
 }
