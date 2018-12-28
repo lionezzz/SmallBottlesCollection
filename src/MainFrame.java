@@ -1,149 +1,369 @@
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import java.awt.*;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import java.awt.event.*;
 import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
-
+import java.util.Arrays;
+import java.util.Comparator;
 
 public class MainFrame {
 	private BottleList bottles;
-	private JFrame frame = new JFrame();
+	private JFrame frame;
 	private JList<BottleEntry> bottlesList;
-	private JList<String> typeList;
+	private JList showByList;
+	private JScrollPane showByScrollPane;
 	private ImagePanel imagePanel;
-	private JPanel rightPanel;
-	private JScrollPane typeScrollPane;
-	private JTextArea nameArea, typeArea, commentArea;
-	private JButton sortButton, typesButton, countButton;
-	private int sortButtonMark = 0, fullListMark = 0, typesButtonMark = 0;
+	private JPanel bottomPanel, rightCardPanel, bottomCardPanel;
+	private JTextField nameField, typeField, volumeField, alcoField, countryField, yearBottlingField,
+			yearReceiveField, quantityField;
+	private JTextArea commentArea;
+	private JButton countButton, fullListButton;
+	private JToggleButton sortByButton, showByButton;
+	private int scrWidth, scrHeight;
 	private JTextField searchField;
-	private final String ENTER_TEXT = "Введите текст запроса", NOT_FOUND_TEXT = "Не найдено";
+	private Font font;
+	private CardLayout card;
+	private Field sortedBy, showedBy;
+	private final String ENTER_TEXT = "Введите текст запроса", NOT_FOUND_TEXT = "Не найдено", SHOW = "Show", SORT = "Sort",
+			SEARCH = "Searh", INFO = "Info", LIST = "List";
 
-	public MainFrame(BottleList list) {	bottles = list;	}
+	private DefaultListModel<BottleEntry> listModel;
 
-	public void startUp() {
-		Font font = new Font("TimesRoman", Font.PLAIN, 20);
-		Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-		int ScrWidth = dim.width, ScrHeight = dim.height;
+	public MainFrame(BottleList list) {
+		bottles = list;
+		sortedBy = Field.NAME;
+		font = new Font("TimesRoman", Font.PLAIN, 20);
+		Rectangle dim = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+		scrWidth = dim.width;
+		scrHeight = dim.height;
+		card = new CardLayout();
+		SwingUtilities.invokeLater(this::startUp);
+	}
 
-		JPanel bottomPanel = new JPanel(new GridLayout(2,1, 0,5));
-		frame.getContentPane().add(BorderLayout.SOUTH, bottomPanel);
+	public static void main(String[] args) {
+		MainFrame f = new MainFrame(new BottleList());
+		f.bottles.addBottle(new BottleEntry("name1", "type1", 1.0, 40, "RU", 2001, 2002, 1,
+				"comm1", ""));
+		f.bottles.addBottle(new BottleEntry("name2", "type3", 5.0, 1, "SW", 2004, 2001, 2,
+				"comm1", ""));
+		f.bottles.addBottle(new BottleEntry("name3", "type2", 4.0, 40, "GE", 1111, 2005, 1,
+				"comm1", ""));
+		f.bottles.addBottle(new BottleEntry("name4", "type1", 1.0, 45, "RU", 2004, 2002, 2,
+				"comm1", ""));
+		f.bottles.addBottle(new BottleEntry("name5", "type2", 2.0, 40, "EN", 2001, 2005, 1,
+				"comm1", ""));
+		f.bottles.addBottle(new BottleEntry("name6", "type3", 4.0, 45, "GE", 200, 2002, 2,
+				"comm1", ""));
+		f.bottles.addBottle(new BottleEntry("", "", null, null, "", null, null, null,
+				"", ""));
+	}
 
-		JPanel searchBox = new JPanel(new BorderLayout());
-		bottomPanel.add(searchBox);
 
-		searchField = new JTextField("Введите текст запроса");
-		searchField.setFont(font);
-		searchBox.add(searchField);
-		searchField.addMouseListener(new MouseListener() {
-			public void mouseClicked(MouseEvent e) {autoEmptySearch(e);}
-			public void mousePressed(MouseEvent e) {}
-			public void mouseReleased(MouseEvent e) {}
-			public void mouseEntered(MouseEvent e) {}
-			public void mouseExited(MouseEvent e) {}
+
+	private void startUp() {
+		frameSetUp();
+
+		bottomPanelSetUp();
+
+		backgroundSetUp();
+	}
+
+	private void frameSetUp() {
+		frame = new JFrame();
+		frame.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent e) { saveAndExit(); }
 		});
+		frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+		frame.setMaximizedBounds(new Rectangle(scrWidth, scrHeight));
+		frame.setResizable(false);
+		frame.setUndecorated(true);
+		frame.setVisible(true);
+	}
 
-		JButton searchButton = new JButton("              Поиск              ");
-		searchButton.setFont(font);
-		searchBox.add(BorderLayout.EAST,searchButton);
-		searchButton.addActionListener(e -> search());
+	private void bottomPanelSetUp() {
+		bottomPanel = new JPanel(new GridLayout(2,1, 0,5));
+		frame.add(BorderLayout.SOUTH, bottomPanel);
 
-		JPanel buttonBox = new JPanel(new GridLayout(1, 6));
-		bottomPanel.add(buttonBox);
+		bottomCardPanel = new JPanel(card);
+		bottomPanel.add(bottomCardPanel);
 
-		sortButton = new JButton("Сортировать по имени");
-		typesButton = new JButton("Показать типы");
+		JPanel buttonPanel = new JPanel(new GridLayout(1, 6));
+		buttonPanelSetUp(buttonPanel);
+
+		JPanel searchPanel = new JPanel(new BorderLayout());
+		searchPanelSetUp(searchPanel);
+
+		JPanel sortPanel = new JPanel(new GridLayout(1, 7));
+		sortPanelSetUp(sortPanel);
+
+		JPanel showByPanel = new JPanel(new GridLayout(1, 6));
+		showByPanelSetUp(showByPanel);
+
+		bottomCardPanel.add(searchPanel, SEARCH);
+		bottomCardPanel.add(sortPanel, SORT);
+		bottomCardPanel.add(showByPanel, SHOW);
+	}
+
+	private void buttonPanelSetUp(JPanel buttonPanel) {
+		bottomPanel.add(buttonPanel);
+
+		sortByButton = new JToggleButton("Сортировать по...");
+		showByButton = new JToggleButton("Отобразить...");
 		countButton = new JButton("Количество: " + bottles.getCount());
-		JButton addButton = new JButton("Добавить"), exitButton = new JButton("Сохранить и выйти"),
-				fullListButton = new JButton("Показать весь список");
+		fullListButton = new JButton("Показать весь список");
+		JButton addButton = new JButton("Добавить"), exitButton = new JButton("Закрыть");
 
 		addButton.setFont(font);
-		buttonBox.add(addButton);
+		buttonPanel.add(addButton);
 		addButton.addActionListener(e -> addNewEntry());
 
-		sortButton.setFont(font);
-		buttonBox.add(sortButton);
-		sortButton.addActionListener(e -> sortBy());
+		sortByButton.setFont(font);
+		buttonPanel.add(sortByButton);
+		sortByButton.addActionListener(e -> showSortPanel());
 
-		typesButton.setFont(font);
-		buttonBox.add(typesButton);
-		typesButton.addActionListener(e -> showTypes());
+		showByButton.setFont(font);
+		buttonPanel.add(showByButton);
+		showByButton.addActionListener(e -> showParameters());
 
 		fullListButton.setFont(font);
-		buttonBox.add(fullListButton);
+		fullListButton.setEnabled(false);
+		buttonPanel.add(fullListButton);
 		fullListButton.addActionListener(e -> showFullList());
 
 		countButton.setFont(font);
-		buttonBox.add(countButton);
+		buttonPanel.add(countButton);
 		countButton.addActionListener(e -> showCount());
 
 		exitButton.setFont(font);
-		buttonBox.add(exitButton);
-		exitButton.addActionListener(e -> saveAndExit());
+		buttonPanel.add(exitButton);
+		exitButton.addActionListener(e -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING)));
+	}
 
+	private void searchPanelSetUp(JPanel searchPanel) {
+		searchField = new JTextField("Введите текст запроса");
+		searchField.setFont(font);
+		searchPanel.add(searchField);
+		searchField.addMouseListener(new MouseAdapter() {
+			public void mouseClicked(MouseEvent e) {autoEmptySearch(e);}
+		});
+
+		JButton searchButton = new JButton("Поиск");
+		searchButton.setFont(font);
+		searchPanel.add(BorderLayout.EAST,searchButton);
+		searchButton.addActionListener(e -> search());
+	}
+
+	private void sortPanelSetUp(JPanel sortPanel) {
+		JButton nameSortButton = new JButton("Названию"),
+				typeSortButton = new JButton("Типу"),
+				volumeSortButton = new JButton("Объёму"),
+				alcoSortButton = new JButton("Содержанию алкоголя"),
+				countrySortButton = new JButton("Стране происхождения"),
+				yearBottlingSortButton = new JButton("Дате розлива"),
+				yearReceiveSortButton = new JButton("Дате поступления");
+
+		sortPanel.add(nameSortButton);
+		sortPanel.add(typeSortButton);
+		sortPanel.add(volumeSortButton);
+		sortPanel.add(alcoSortButton);
+		sortPanel.add(countrySortButton);
+		sortPanel.add(yearBottlingSortButton);
+		sortPanel.add(yearReceiveSortButton);
+
+		nameSortButton.setFont(font);
+		typeSortButton.setFont(font);
+		volumeSortButton.setFont(font);
+		alcoSortButton.setFont(font);
+		countrySortButton.setFont(font);
+		yearBottlingSortButton.setFont(font);
+		yearReceiveSortButton.setFont(font);
+
+		nameSortButton.addActionListener(e -> sortBy(Field.NAME));
+		typeSortButton.addActionListener(e -> sortBy(Field.TYPE));
+		volumeSortButton.addActionListener(e -> sortBy(Field.VOLUME));
+		alcoSortButton.addActionListener(e -> sortBy(Field.ALCO));
+		countrySortButton.addActionListener(e -> sortBy(Field.COUNTRY));
+		yearBottlingSortButton.addActionListener(e -> sortBy(Field.YEAR_BOTTLING));
+		yearReceiveSortButton.addActionListener(e -> sortBy(Field.YEAR_RECEIVE));
+	}
+
+	private void showByPanelSetUp(JPanel showByPanel) {
+		JButton typeShowButton = new JButton("Типы"),
+				volumeShowButton = new JButton("Объёмы"),
+				alcoShowButton = new JButton("Содержание алкоголя"),
+				countryShowButton = new JButton("Страны происхождения"),
+				yearBottlingShowButton = new JButton("Годы розлива"),
+				yearReceiveShowButton = new JButton("Годы поступления"),
+				duplicatesShowButton = new JButton("Дубликаты");
+
+		showByPanel.add(typeShowButton);
+		showByPanel.add(volumeShowButton);
+		showByPanel.add(alcoShowButton);
+		showByPanel.add(countryShowButton);
+		showByPanel.add(yearBottlingShowButton);
+		showByPanel.add(yearReceiveShowButton);
+		showByPanel.add(duplicatesShowButton);
+
+		typeShowButton.setFont(font);
+		volumeShowButton.setFont(font);
+		alcoShowButton.setFont(font);
+		countryShowButton.setFont(font);
+		yearBottlingShowButton.setFont(font);
+		yearReceiveShowButton.setFont(font);
+		duplicatesShowButton.setFont(font);
+
+		typeShowButton.addActionListener(e -> showRightList(Field.TYPE));
+		volumeShowButton.addActionListener(e -> showRightList(Field.VOLUME));
+		alcoShowButton.addActionListener(e -> showRightList(Field.ALCO));
+		countryShowButton.addActionListener(e -> showRightList(Field.COUNTRY));
+		yearBottlingShowButton.addActionListener(e -> showRightList(Field.YEAR_BOTTLING));
+		yearReceiveShowButton.addActionListener(e -> showRightList(Field.YEAR_RECEIVE));
+		duplicatesShowButton.addActionListener(e -> showDuplicates());
+	}
+
+	private void backgroundSetUp() {
 		JPanel background = new JPanel();
-		frame.getContentPane().add(BorderLayout.CENTER,background);
+		frame.add(BorderLayout.CENTER,background);
 		background.setLayout(null);
 
+		bottlesListSetUp(background);
+
+		JPanel bigInfoPanel = new JPanel(new GridLayout(2,1));
+		bigInfoPanelSetUp(bigInfoPanel);
+
+		showByScrollPane = new JScrollPane();
+		showByScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+		showByScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		showByScrollPane.setVisible(false);
+
+		rightCardPanel = new JPanel(card);
+		rightCardPanel.setBounds(scrWidth / 2 + 5, 5, scrWidth / 2 - 10 , scrHeight - 10 -
+				bottomPanel.getPreferredSize().height);
+		rightCardPanel.add(bigInfoPanel, INFO);
+		rightCardPanel.add(showByScrollPane, LIST);
+		background.add(rightCardPanel);
+	}
+
+
+	private void setBottleList(BottleEntry[] entries) {
+		for (BottleEntry b : entries) listModel.addElement(b);
+	}
+
+	private void bottlesListSetUp(JPanel background) {
 		bottlesList = new JList<>();
 		bottlesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		if (bottles.getCount() > 0) {
-			bottlesList.setListData(bottles.getBottleArray());
-		}
 		bottlesList.addListSelectionListener(this::showChosenBottle);
 
+		listModel = new DefaultListModel<>();
+		bottlesList.setModel(listModel);
+		setBottleList(bottles.getBottleArray());
+
+
 		JScrollPane scrollPane = new JScrollPane(bottlesList);
-		scrollPane.setBounds(5,5,ScrWidth / 2 - 10, ScrHeight - 88);
+		scrollPane.setBounds(5,5,scrWidth / 2 - 10, scrHeight - 10 -
+				bottomPanel.getPreferredSize().height);
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		background.add(scrollPane);
+	}
 
-		rightPanel = new JPanel(new GridLayout(2,1));
-		rightPanel.setBounds(ScrWidth / 2 + 5, 5, ScrWidth / 2 - 10 , ScrHeight - 85);
-		background.add(rightPanel);
-
-		typeList = new JList<>();
-		typeList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		typeList.addListSelectionListener(this::showByType);
-		typeScrollPane = new JScrollPane(typeList);
-		typeScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-		typeScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-		typeScrollPane.setBounds(rightPanel.getX(), 5, rightPanel.getWidth(), rightPanel.getHeight());
-		typeScrollPane.setVisible(false);
-		background.add(typeScrollPane);
-
+	private void bigInfoPanelSetUp(JPanel bigInfoPanel) {
 		imagePanel = new ImagePanel();
-		rightPanel.add(imagePanel);
+		bigInfoPanel.add(imagePanel);
 
-		Box infoBox = new Box(BoxLayout.Y_AXIS);
-		rightPanel.add(infoBox);
+		JPanel infoPanel = new JPanel(new GridLayout(2,1));
+		infoPanelSetUp(infoPanel);
 
-		JLabel nameLabel = new JLabel("Имя:");
-		infoBox.add(nameLabel);
-		nameArea = new JTextArea();
-		nameArea.setEditable(false);
-		nameArea.setLineWrap(true);
-		nameArea.setWrapStyleWord(true);
-		infoBox.add(nameArea);
+		bigInfoPanel.add(infoPanel);
+	}
 
+	private void infoPanelSetUp(JPanel infoPanel){
+		JPanel paramsPanel = new JPanel(new BorderLayout());
+		infoPanel.add(paramsPanel);
+
+		JPanel paramsLabelPanel = new JPanel(new GridLayout(8, 1));
+		paramsPanel.add(BorderLayout.WEST, paramsLabelPanel);
+
+		paramsLabelSetUp(paramsLabelPanel);
+
+		JPanel paramsValuePanel = new JPanel(new GridLayout(8, 1, 0, 1));
+		paramsPanel.add(BorderLayout.CENTER, paramsValuePanel);
+
+		paramsValueSetUp(paramsValuePanel);
+
+		JPanel CBPanel = new JPanel(new BorderLayout());
+		infoPanel.add(CBPanel);
+
+		CBPanelSetUp(CBPanel);
+	}
+
+	private void paramsLabelSetUp(JPanel paramsLabelPanel) {
+		JLabel nameLabel = new JLabel("Название:");
 		JLabel typeLabel = new JLabel("Тип:");
-		infoBox.add(typeLabel);
-		typeArea = new JTextArea();
-		typeArea.setEditable(false);
-		infoBox.add(typeArea);
+		JLabel volumeLabel = new JLabel("Объём:");
+		JLabel alcoLabel = new JLabel("Содержание алкоголя:");
+		JLabel countryLabel = new JLabel("Страна происхождения:");
+		JLabel yearBottlingLabel = new JLabel("Год розлива:");
+		JLabel yearReceiveLabel = new JLabel("Год поступления:");
+		JLabel quantityLabel = new JLabel("Количество:");
 
+		paramsLabelPanel.add(nameLabel);
+		paramsLabelPanel.add(typeLabel);
+		paramsLabelPanel.add(volumeLabel);
+		paramsLabelPanel.add(alcoLabel);
+		paramsLabelPanel.add(countryLabel);
+		paramsLabelPanel.add(yearBottlingLabel);
+		paramsLabelPanel.add(yearReceiveLabel);
+		paramsLabelPanel.add(quantityLabel);
+	}
+
+	private void paramsValueSetUp(JPanel paramsValuePanel) {
+		nameField = new JTextField();
+		nameField.setEditable(false);
+		paramsValuePanel.add(nameField);
+
+		typeField = new JTextField();
+		typeField.setEditable(false);
+		paramsValuePanel.add(typeField);
+
+		volumeField = new JTextField();
+		volumeField.setEditable(false);
+		paramsValuePanel.add(volumeField);
+
+		alcoField = new JTextField();
+		alcoField.setEditable(false);
+		paramsValuePanel.add(alcoField);
+
+		countryField = new JTextField();
+		countryField.setEditable(false);
+		paramsValuePanel.add(countryField);
+
+		yearBottlingField = new JTextField();
+		yearBottlingField.setEditable(false);
+		paramsValuePanel.add(yearBottlingField);
+
+		yearReceiveField = new JTextField();
+		yearReceiveField.setEditable(false);
+		paramsValuePanel.add(yearReceiveField);
+
+		quantityField = new JTextField();
+		quantityField.setEditable(false);
+		paramsValuePanel.add(quantityField);
+	}
+
+	private void CBPanelSetUp(JPanel CBPanel) {
 		JLabel commentLabel = new JLabel("Комментарий:");
-		infoBox.add(commentLabel);
+		CBPanel.add(BorderLayout.NORTH, commentLabel);
+
 		commentArea = new JTextArea();
 		commentArea.setEditable(false);
 		commentArea.setLineWrap(true);
 		commentArea.setWrapStyleWord(true);
-		infoBox.add(commentArea);
+		CBPanel.add(BorderLayout.CENTER, commentArea);
 
 		JPanel editPanel = new JPanel(new GridLayout(1,2));
-		infoBox.add(editPanel);
+		CBPanel.add(BorderLayout.SOUTH, editPanel);
 
 		JButton editButton = new JButton("Изменить");
 		editPanel.add(editButton);
@@ -152,59 +372,120 @@ public class MainFrame {
 		JButton deleteButton = new JButton("Удалить");
 		editPanel.add(deleteButton);
 		deleteButton.addActionListener(e -> deleteChosen());
-
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setExtendedState(Frame.MAXIMIZED_BOTH);
-		frame.setResizable(false);
-		frame.setUndecorated(true);
-		frame.setVisible(true);
 	}
 
 	private void addNewEntry() {
 		EditFrame editFrame = new EditFrame(bottles);
-		editFrame.showFrame();
+		editFrame.startUp();
 		frame.dispose();
 	}
 
-	private void sortBy() {
-		if (sortButtonMark == 0) {
-			if (bottles.getSortingMark() != 0) {
-				bottles.sortByName();
-				bottlesList.setListData(bottles.getBottleArray());
+	private void showSortPanel() {
+		if (sortByButton.isSelected()) {
+			card.show(bottomCardPanel, SORT);
+			if (showByButton.isSelected()) {
+				showByButton.setSelected(false);
 			}
-			sortButton.setText("Сортировать по типу");
-			sortButtonMark++;
 		} else {
-			bottles.sortByType();
-			bottlesList.setListData(bottles.getBottleArray());
-			sortButton.setText("Сортировать по имени");
-			sortButtonMark = 0;
+			card.show(bottomCardPanel, SEARCH);
 		}
 	}
 
-	private void showTypes() {
-		if (typesButtonMark == 0) {
-			typesButtonMark++;
-			rightPanel.setVisible(false);
-			typeScrollPane.setVisible(true);
-			typeList.setListData(bottles.getTypes());
-			typesButton.setText("Скрыть типы");
-			clearAll();
-		} else { hideTypes(); }
+	///////////////////////////////////////////////убрать скрытие панельки
+	private void sortBy(Field field) {
+		sortByButton.setSelected(false);
+		card.show(bottomCardPanel, SEARCH);
+		if (field == sortedBy) return;
+		sortedBy = field;
+		BottleEntry[] result = bottles.getBottleArray();
+		switch (field) {
+			case TYPE:
+				Arrays.sort(result, (o1, o2) -> o1.getType().compareToIgnoreCase(o2.getType()));
+				break;
+			case VOLUME:
+				Arrays.sort(result, Comparator.comparingDouble(BottleEntry::getVolume));
+				break;
+			case ALCO:
+				Arrays.sort(result, Comparator.comparingInt(BottleEntry::getAlco));
+				break;
+			case COUNTRY:
+				Arrays.sort(result, (o1, o2) -> o1.getCountry().compareToIgnoreCase(o2.getCountry()));
+				break;
+			case YEAR_BOTTLING:
+				Arrays.sort(result, Comparator.comparingInt(BottleEntry::getYearBottling));
+				break;
+			case YEAR_RECEIVE:
+				Arrays.sort(result, Comparator.comparingInt(BottleEntry::getYearReceive));
+		}
+		bottlesList.setListData(result);
 	}
 
-	private void hideTypes() {
-		typeScrollPane.setVisible(false);
-		rightPanel.setVisible(true);
-		typesButton.setText("Показать типы");
-		typesButtonMark = 0;
+	///////////////////////////////////////////////добавить скрытие правого списка
+	private void showParameters() {
+		if (showByButton.isSelected()) {
+			card.show(bottomCardPanel, SHOW);
+			if (sortByButton.isSelected()) {
+				sortByButton.setSelected(false);
+			}
+		} else {
+			card.show(bottomCardPanel, SEARCH);
+			card.show(rightCardPanel, INFO);
+		}
 	}
 
+	private void showRightList(Field field) {
+		showedBy = field;
+		switch (field) {
+			case TYPE:
+				showByList = new JList<String>();
+				showByList.setListData(bottles.getTypes());
+				break;
+			case VOLUME:
+				showByList = new JList<Double>();
+				showByList.setListData(bottles.getVolumes());
+				break;
+			case ALCO:
+				showByList = new JList<Integer>();
+				showByList.setListData(bottles.getAlcos());
+				break;
+			case COUNTRY:
+				showByList = new JList<String>();
+				showByList.setListData(bottles.getCountries());
+				break;
+			case YEAR_BOTTLING:
+				showByList = new JList<Integer>();
+				showByList.setListData(bottles.getYearsBotting());
+				break;
+			case YEAR_RECEIVE:
+				showByList = new JList<Integer>();
+				showByList.setListData(bottles.getYearsReceive());
+		}
+		//////////////////////////////////////////////////////изменить работу showBy и проверить не нужно ли другого listenera добавлять
+		showByList.addListSelectionListener(this::showBy);
+
+		showByList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		showByScrollPane.setViewportView(showByList);
+		card.show(rightCardPanel, LIST);
+
+	}
+
+	////////////////////////////////////////////////добавить fullListButton.setEnabled(true);
+	private void showBy(ListSelectionEvent event) {
+		if (!event.getValueIsAdjusting()) {
+			//bottlesList.setListData(bottles.getByType(showByList.getSelectedValue()));
+		}
+	}
+
+	private void showDuplicates() {
+		bottlesList.setListData(bottles.getDuplicates());
+		fullListButton.setEnabled(true);
+		clearAll();
+	}
+
+	////////////////////////////////////////// диалоговое окно и отслеживание изменений
 	private void saveAndExit() {
-		try {
-			ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream("database.ser"));
+		try (ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream("database.ser"))) {
 			os.writeObject(bottles);
-			os.close();
 		} catch (Exception ex) { ex.printStackTrace(); }
 		System.exit(0);
 	}
@@ -212,33 +493,51 @@ public class MainFrame {
 	private void editEntry() {
 		if (bottlesList.getSelectedValue() != null) {
 			EditFrame editFrame = new EditFrame(bottles);
-			editFrame.editEntry(bottlesList.getSelectedValue());
+			//editFrame.editEntry(bottlesList.getSelectedValue());
 			frame.dispose();
 		}
 	}
 
+	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!убрать проверку на null и поменять на отрицательное значение???
+	//////////////////////////////////////////////////////сделать при скрытии правой панельки обнуление поля showedBy
 	private void showChosenBottle(ListSelectionEvent event) {
 		if (!event.getValueIsAdjusting()) {
 			BottleEntry chosen = bottlesList.getSelectedValue();
 			if (chosen != null) {
-				nameArea.setText(chosen.getName());
-				typeArea.setText(chosen.getType());
+				nameField.setText(chosen.getName());
+				typeField.setText(chosen.getType());
+				countryField.setText(chosen.getCountry());
 				commentArea.setText(chosen.getComment());
 				imagePanel.setImage(chosen.getImage(), imagePanel.getWidth(), imagePanel.getHeight());
 				imagePanel.repaint();
-				hideTypes();
+				card.show(rightCardPanel, INFO);
+
+				Double vol = chosen.getVolume();
+				Integer alco = chosen.getAlco(),
+						yearB = chosen.getYearBottling(),
+						yearR = chosen.getYearReceive();
+				//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!убрать проверку на null и поменять на отрицательное значение???
+				if (vol == null) volumeField.setText("");
+				else volumeField.setText(Double.toString(chosen.getVolume()));
+
+				if (alco == null) alcoField.setText("");
+				else alcoField.setText(Integer.toString(chosen.getAlco()) + "°");
+
+				if (yearB == null) yearBottlingField.setText("");
+				else yearBottlingField.setText(Integer.toString(chosen.getYearBottling()));
+
+				if (yearR == null) yearReceiveField.setText("");
+				else yearReceiveField.setText(Integer.toString(chosen.getYearReceive()));
+
+				quantityField.setText(Integer.toString(chosen.getQuantity()));
 			}
-
 		}
 	}
 
-	private void showByType(ListSelectionEvent event) {
-		fullListMark++;
-		if (!event.getValueIsAdjusting()) {
-			bottlesList.setListData(bottles.getByType(typeList.getSelectedValue()));
-		}
-	}
+	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! изменить
 
+
+	/////////////////////////////////////////////////////////////////////////переделать с использованием listModel
 	private void deleteChosen() {
 		bottles.deleteBottle(bottlesList.getSelectedValue());
 		bottlesList.setListData(bottles.getBottleArray());
@@ -250,27 +549,28 @@ public class MainFrame {
 		countButton.setText("Количество: " + bottles.getCount());
 	}
 
+	/////////////////////////////////////дополнить очищение всех новых полей
 	private void clearAll() {
 		imagePanel.setNullImage();
-		nameArea.setText("");
-		typeArea.setText("");
+		nameField.setText("");
+		typeField.setText("");
 		commentArea.setText("");
 		bottlesList.clearSelection();
 		imagePanel.repaint();
 	}
 
 	private void showFullList() {
-		if (fullListMark != 0) {
+		/*if (fullListMark != 0) {
 			fullListMark = 0;
 			bottlesList.setListData(bottles.getBottleArray());
 			if (typesButtonMark != 0) {
-				hideTypes();
+				//hideTypes();
 			}
-		}
+		}*/
 	}
 
 	private void search() {
-		String searchText = searchField.getText();
+		/*String searchText = searchField.getText();
 		if (searchText.length() == 0 || searchText.equals(NOT_FOUND_TEXT)) {
 			searchField.setText(ENTER_TEXT);
 		} else if (!searchText.equals(ENTER_TEXT)) {
@@ -279,10 +579,10 @@ public class MainFrame {
 				searchField.setText(NOT_FOUND_TEXT);
 			} else {
 				bottlesList.setListData(searchResult);
-				fullListMark++;
+				++fullListMark;
 				searchField.setText(ENTER_TEXT);
 			}
-		}
+		}*/
 	}
 
 	private void autoEmptySearch(MouseEvent event) {

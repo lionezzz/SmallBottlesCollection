@@ -8,6 +8,7 @@ public class ImagePanel extends JPanel {
 	public ImagePanel() { image = null; }
 
 	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
 		g.setColor(Color.GRAY);
 		g.fillRect(0,0, this.getWidth(), this.getHeight());
 		if (image != null) {
