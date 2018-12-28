@@ -8,7 +8,7 @@ public class Main {
 		File db = new File("database.ser");
 		BottleList list = null;
 		if (db.exists()) {
-			try (ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(db))){
+			try (ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(db))) {
 				list = (BottleList) inputStream.readObject();
 			} catch (Exception ex) {
 				ex.printStackTrace();

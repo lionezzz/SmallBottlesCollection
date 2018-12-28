@@ -5,7 +5,6 @@ public class BottleEntry  implements Serializable {
 	private Integer alco, quantity, yearBottling, yearReceive;
 	private Double volume;
 
-
 	public BottleEntry(String nm, String ty, Double vol, Integer al, String cnt, Integer yB, Integer yR,
 	                   Integer qnt, String cm, String pic) {
 		name = (nm != null) ? nm : "";

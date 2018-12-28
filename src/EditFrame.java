@@ -18,7 +18,7 @@ public class EditFrame {
 	private int scrWidth, scrHeight;
 	private Font font;
 	private JPanel buttonPanel;
-	private boolean sorted;
+	private boolean edited;
 
 	public static void main(String[] args) {
 		EditFrame f = new EditFrame(new BottleList());
@@ -28,12 +28,11 @@ public class EditFrame {
 		bottles = list;
 		bottleToEdit = null;
 		path = "";
-		sorted = true;
 		font = new Font("TimesRoman", Font.PLAIN, 20);
 		Rectangle dim = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
 		scrWidth = dim.width;
 		scrHeight = dim.height;
-		SwingUtilities.invokeLater(this::startUp);
+		startUp();
 	}
 
 	public EditFrame(BottleList list, BottleEntry entry) {
@@ -41,7 +40,7 @@ public class EditFrame {
 		editEntry(entry);
 	}
 
-	public void startUp() {
+	private void startUp() {
 		frameSetUp();
 
 		buttonPanelSetUp();
@@ -217,11 +216,10 @@ public class EditFrame {
 	}
 
 	private void returnToMain() {
-		if (!sorted) {
+		if (edited) {
 			bottles.sort();
-			sorted = true;
 		}
-		new MainFrame(bottles);
+		new MainFrame(bottles, edited);
 		frame.dispose();
 	}
 
@@ -238,21 +236,17 @@ public class EditFrame {
 				return;
 			}
 
-			//////////////////////////////////////////////////////проверить с неотображаемыми полями - записываются ли заново те, что уже есть
 			BottleEntry newBottle = getNewBottle();
 			if (bottleToEdit != null) {
 				if (!bottleToEdit.equals(newBottle)) {
 					bottles.addBottle(newBottle);
 					bottles.deleteBottle(bottleToEdit);
-					if (!newBottle.getName().equals(bottleToEdit.getName())) {
-						sorted = false;
-					}
 				}
 				bottleToEdit = null;
 			} else {
 				bottles.addBottle(newBottle);
-				sorted = false;
 			}
+			edited = true;
 			setEmptyFields();
 		}
 		if (!path.equals("")) {
@@ -267,10 +261,10 @@ public class EditFrame {
 	}
 
 	private BottleEntry getNewBottle() {
-		Scanner scanner = new Scanner(volumeField.getText());
-		Double volume = scanner.hasNextDouble() ? scanner.nextDouble() : null;
+		String vol = volumeField.getText().replace(',','.');
+		Double volume = vol.matches("\\d+[.]\\d+") ? Double.parseDouble(vol) : null;
 
-		scanner = new Scanner(alcoField.getText());
+		Scanner scanner = new Scanner(alcoField.getText());
 		Integer alco = scanner.hasNextInt() ? scanner.nextInt() : null;
 
 		scanner = new Scanner(yearBottlingField.getText());

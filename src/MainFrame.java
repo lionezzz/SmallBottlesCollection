@@ -4,8 +4,8 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
-import java.util.Arrays;
 import java.util.Comparator;
+import java.util.stream.Stream;
 
 public class MainFrame {
 	private BottleList bottles;
@@ -27,8 +27,8 @@ public class MainFrame {
 	private Field sortedBy, showedBy;
 	private final String ENTER_TEXT = "Введите текст запроса", NOT_FOUND_TEXT = "Не найдено", SHOW = "Show", SORT = "Sort",
 			SEARCH = "Searh", INFO = "Info", LIST = "List";
-
 	private DefaultListModel<BottleEntry> listModel;
+	private boolean edited;
 
 	public MainFrame(BottleList list) {
 		bottles = list;
@@ -38,25 +38,31 @@ public class MainFrame {
 		scrWidth = dim.width;
 		scrHeight = dim.height;
 		card = new CardLayout();
-		SwingUtilities.invokeLater(this::startUp);
+		startUp();
+	}
+
+	///////////////////////////////////////////////////////добавить в EditFrame
+	public MainFrame(BottleList list, boolean edit) {
+		this(list);
+		edited = edit;
 	}
 
 	public static void main(String[] args) {
-		MainFrame f = new MainFrame(new BottleList());
-		f.bottles.addBottle(new BottleEntry("name1", "type1", 1.0, 40, "RU", 2001, 2002, 1,
+		BottleList f = new BottleList();
+		f.addBottle(new BottleEntry("name1", "type1", 1.0, 40, "RU", 2001, 2002, 1,
 				"comm1", ""));
-		f.bottles.addBottle(new BottleEntry("name2", "type3", 5.0, 1, "SW", 2004, 2001, 2,
+		f.addBottle(new BottleEntry("name2", "type3", 5.0, 1, "SW", 2004, 2001, 2,
 				"comm1", ""));
-		f.bottles.addBottle(new BottleEntry("name3", "type2", 4.0, 40, "GE", 1111, 2005, 1,
+		f.addBottle(new BottleEntry("name3", "type2", 4.0, 40, "GE", 1111, 2005, 1,
 				"comm1", ""));
-		f.bottles.addBottle(new BottleEntry("name4", "type1", 1.0, 45, "RU", 2004, 2002, 2,
+		f.addBottle(new BottleEntry("name4", "type1", 1.0, 45, "RU", 2004, 2002, 2,
 				"comm1", ""));
-		f.bottles.addBottle(new BottleEntry("name5", "type2", 2.0, 40, "EN", 2001, 2005, 1,
+		f.addBottle(new BottleEntry("name5", "type2", 2.0, 40, "EN", 2001, 2005, 1,
 				"comm1", ""));
-		f.bottles.addBottle(new BottleEntry("name6", "type3", 4.0, 45, "GE", 200, 2002, 2,
+		f.addBottle(new BottleEntry("NAME", "type3", 4.0, 45, "GE", 200, 2002, 2,
 				"comm1", ""));
-		f.bottles.addBottle(new BottleEntry("", "", null, null, "", null, null, null,
-				"", ""));
+		f.addBottle(new BottleEntry("", "", null, null, "", null, null, null,"", ""));
+		new MainFrame(f);
 	}
 
 
@@ -110,7 +116,7 @@ public class MainFrame {
 
 		sortByButton = new JToggleButton("Сортировать по...");
 		showByButton = new JToggleButton("Отобразить...");
-		countButton = new JButton("Количество: " + bottles.getCount());
+		countButton = new JButton();
 		fullListButton = new JButton("Показать весь список");
 		JButton addButton = new JButton("Добавить"), exitButton = new JButton("Закрыть");
 
@@ -133,19 +139,18 @@ public class MainFrame {
 
 		countButton.setFont(font);
 		buttonPanel.add(countButton);
-		countButton.addActionListener(e -> showCount());
 
 		exitButton.setFont(font);
 		buttonPanel.add(exitButton);
-		exitButton.addActionListener(e -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING)));
+		exitButton.addActionListener(e -> saveAndExit());
 	}
 
 	private void searchPanelSetUp(JPanel searchPanel) {
 		searchField = new JTextField("Введите текст запроса");
 		searchField.setFont(font);
 		searchPanel.add(searchField);
-		searchField.addMouseListener(new MouseAdapter() {
-			public void mouseClicked(MouseEvent e) {autoEmptySearch(e);}
+		searchField.addFocusListener(new FocusAdapter() {
+			public void focusGained(FocusEvent e) { autoEmptySearch(); }
 		});
 
 		JButton searchButton = new JButton("Поиск");
@@ -229,25 +234,23 @@ public class MainFrame {
 
 		bottlesListSetUp(background);
 
+		rightCardPanel = new JPanel(card);
+		background.add(rightCardPanel);
+		rightCardPanel.setBounds(scrWidth / 2 + 5, 5, scrWidth / 2 - 10 , scrHeight - 10 -
+				bottomPanel.getPreferredSize().height);
+
 		JPanel bigInfoPanel = new JPanel(new GridLayout(2,1));
 		bigInfoPanelSetUp(bigInfoPanel);
+
+		rightCardPanel.add(bigInfoPanel, INFO);
+		card.show(rightCardPanel, INFO);
 
 		showByScrollPane = new JScrollPane();
 		showByScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		showByScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		showByScrollPane.setVisible(false);
 
-		rightCardPanel = new JPanel(card);
-		rightCardPanel.setBounds(scrWidth / 2 + 5, 5, scrWidth / 2 - 10 , scrHeight - 10 -
-				bottomPanel.getPreferredSize().height);
-		rightCardPanel.add(bigInfoPanel, INFO);
 		rightCardPanel.add(showByScrollPane, LIST);
-		background.add(rightCardPanel);
-	}
-
-
-	private void setBottleList(BottleEntry[] entries) {
-		for (BottleEntry b : entries) listModel.addElement(b);
 	}
 
 	private void bottlesListSetUp(JPanel background) {
@@ -258,7 +261,6 @@ public class MainFrame {
 		listModel = new DefaultListModel<>();
 		bottlesList.setModel(listModel);
 		setBottleList(bottles.getBottleArray());
-
 
 		JScrollPane scrollPane = new JScrollPane(bottlesList);
 		scrollPane.setBounds(5,5,scrWidth / 2 - 10, scrHeight - 10 -
@@ -374,9 +376,18 @@ public class MainFrame {
 		deleteButton.addActionListener(e -> deleteChosen());
 	}
 
+	private void setBottleList(BottleEntry[] entries) {
+		listModel.clear();
+		for (BottleEntry b : entries) listModel.addElement(b);
+		showCount();
+	}
+
+	private void showCount() {
+		countButton.setText("Количество: " + listModel.size());
+	}
+
 	private void addNewEntry() {
-		EditFrame editFrame = new EditFrame(bottles);
-		editFrame.startUp();
+		new EditFrame(bottles);
 		frame.dispose();
 	}
 
@@ -391,36 +402,49 @@ public class MainFrame {
 		}
 	}
 
-	///////////////////////////////////////////////убрать скрытие панельки
 	private void sortBy(Field field) {
-		sortByButton.setSelected(false);
-		card.show(bottomCardPanel, SEARCH);
 		if (field == sortedBy) return;
 		sortedBy = field;
 		BottleEntry[] result = bottles.getBottleArray();
 		switch (field) {
+			case NAME:
+				result = Stream.concat(
+						Stream.of(result).filter(e -> !e.getName().equals("")).sorted(Comparator.comparing(BottleEntry::getName)),
+						Stream.of(result).filter(e -> e.getName().equals(""))).toArray(BottleEntry[]::new);
+				break;
 			case TYPE:
-				Arrays.sort(result, (o1, o2) -> o1.getType().compareToIgnoreCase(o2.getType()));
+				result = Stream.concat(
+						Stream.of(result).filter(e -> !e.getType().equals("")).sorted(Comparator.comparing(BottleEntry::getType)),
+						Stream.of(result).filter(e -> e.getType().equals(""))).toArray(BottleEntry[]::new);
 				break;
 			case VOLUME:
-				Arrays.sort(result, Comparator.comparingDouble(BottleEntry::getVolume));
+				result = Stream.concat(
+						Stream.of(result).filter(e -> e.getVolume() >= 0).sorted(Comparator.comparing(BottleEntry::getVolume)),
+						Stream.of(result).filter(e -> e.getVolume() < 0)).toArray(BottleEntry[]::new);
 				break;
 			case ALCO:
-				Arrays.sort(result, Comparator.comparingInt(BottleEntry::getAlco));
+				result = Stream.concat(
+						Stream.of(result).filter(e -> e.getAlco() >= 0).sorted(Comparator.comparing(BottleEntry::getAlco)),
+						Stream.of(result).filter(e -> e.getAlco() < 0)).toArray(BottleEntry[]::new);
 				break;
 			case COUNTRY:
-				Arrays.sort(result, (o1, o2) -> o1.getCountry().compareToIgnoreCase(o2.getCountry()));
+				result = Stream.concat(
+						Stream.of(result).filter(e -> !e.getCountry().equals("")).sorted(Comparator.comparing(BottleEntry::getCountry)),
+						Stream.of(result).filter(e -> e.getCountry().equals(""))).toArray(BottleEntry[]::new);
 				break;
 			case YEAR_BOTTLING:
-				Arrays.sort(result, Comparator.comparingInt(BottleEntry::getYearBottling));
+				result = Stream.concat(
+						Stream.of(result).filter(e -> e.getYearBottling() >= 0).sorted(Comparator.comparing(BottleEntry::getYearBottling)),
+						Stream.of(result).filter(e -> e.getYearBottling() < 0)).toArray(BottleEntry[]::new);
 				break;
 			case YEAR_RECEIVE:
-				Arrays.sort(result, Comparator.comparingInt(BottleEntry::getYearReceive));
+				result = Stream.concat(
+						Stream.of(result).filter(e -> e.getYearReceive() >= 0).sorted(Comparator.comparing(BottleEntry::getYearBottling)),
+						Stream.of(result).filter(e -> e.getYearReceive() < 0)).toArray(BottleEntry[]::new);
 		}
-		bottlesList.setListData(result);
+		setBottleList(result);
 	}
 
-	///////////////////////////////////////////////добавить скрытие правого списка
 	private void showParameters() {
 		if (showByButton.isSelected()) {
 			card.show(bottomCardPanel, SHOW);
@@ -430,6 +454,7 @@ public class MainFrame {
 		} else {
 			card.show(bottomCardPanel, SEARCH);
 			card.show(rightCardPanel, INFO);
+			showedBy = null;
 		}
 	}
 
@@ -460,46 +485,71 @@ public class MainFrame {
 				showByList = new JList<Integer>();
 				showByList.setListData(bottles.getYearsReceive());
 		}
-		//////////////////////////////////////////////////////изменить работу showBy и проверить не нужно ли другого listenera добавлять
 		showByList.addListSelectionListener(this::showBy);
-
 		showByList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		showByScrollPane.setViewportView(showByList);
 		card.show(rightCardPanel, LIST);
-
 	}
 
-	////////////////////////////////////////////////добавить fullListButton.setEnabled(true);
 	private void showBy(ListSelectionEvent event) {
 		if (!event.getValueIsAdjusting()) {
-			//bottlesList.setListData(bottles.getByType(showByList.getSelectedValue()));
+			BottleEntry[] result = new BottleEntry[0];
+			Object selected = showByList.getSelectedValue();
+			switch (showedBy) {
+				case TYPE:
+					result = bottles.getByType((String) selected);
+					break;
+				case VOLUME:
+					result = bottles.getByVolume((Double) selected);
+					break;
+				case ALCO:
+					result = bottles.getByAlco((Integer) selected);
+					break;
+				case COUNTRY:
+					result = bottles.getByCountry((String) selected);
+					break;
+				case YEAR_BOTTLING:
+					result = bottles.getByYearBottling((Integer) selected);
+					break;
+				case YEAR_RECEIVE:
+					result = bottles.getByYearReceive((Integer) selected);
+					break;
+			}
+			setBottleList(result);
+			fullListButton.setEnabled(true);
 		}
 	}
 
 	private void showDuplicates() {
-		bottlesList.setListData(bottles.getDuplicates());
+		card.show(rightCardPanel, INFO);
+		setBottleList(bottles.getDuplicates());
 		fullListButton.setEnabled(true);
 		clearAll();
 	}
 
-	////////////////////////////////////////// диалоговое окно и отслеживание изменений
-	private void saveAndExit() {
-		try (ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream("database.ser"))) {
-			os.writeObject(bottles);
-		} catch (Exception ex) { ex.printStackTrace(); }
-		System.exit(0);
+	private void clearAll() {
+		nameField.setText("");
+		typeField.setText("");
+		volumeField.setText("");
+		alcoField.setText("");
+		countryField.setText("");
+		yearBottlingField.setText("");
+		yearReceiveField.setText("");
+		quantityField.setText("");
+		commentArea.setText("");
+
+		bottlesList.clearSelection();
+
+		imagePanel.setNullImage();
+		imagePanel.repaint();
 	}
 
-	private void editEntry() {
-		if (bottlesList.getSelectedValue() != null) {
-			EditFrame editFrame = new EditFrame(bottles);
-			//editFrame.editEntry(bottlesList.getSelectedValue());
-			frame.dispose();
-		}
+	private void showFullList() {
+		fullListButton.setEnabled(false);
+		showByButton.setSelected(false);
+		setBottleList(bottles.getBottleArray());
 	}
 
-	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!убрать проверку на null и поменять на отрицательное значение???
-	//////////////////////////////////////////////////////сделать при скрытии правой панельки обнуление поля showedBy
 	private void showChosenBottle(ListSelectionEvent event) {
 		if (!event.getValueIsAdjusting()) {
 			BottleEntry chosen = bottlesList.getSelectedValue();
@@ -510,67 +560,68 @@ public class MainFrame {
 				commentArea.setText(chosen.getComment());
 				imagePanel.setImage(chosen.getImage(), imagePanel.getWidth(), imagePanel.getHeight());
 				imagePanel.repaint();
-				card.show(rightCardPanel, INFO);
 
 				Double vol = chosen.getVolume();
 				Integer alco = chosen.getAlco(),
 						yearB = chosen.getYearBottling(),
-						yearR = chosen.getYearReceive();
-				//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!убрать проверку на null и поменять на отрицательное значение???
-				if (vol == null) volumeField.setText("");
-				else volumeField.setText(Double.toString(chosen.getVolume()));
+						yearR = chosen.getYearReceive(),
+						quantity = chosen.getQuantity();
 
-				if (alco == null) alcoField.setText("");
-				else alcoField.setText(Integer.toString(chosen.getAlco()) + "°");
+				volumeField.setText(vol < 0 ? "" : Double.toString(vol));
+				alcoField.setText(alco < 0 ? "" : (Integer.toString(alco) + "°"));
+				yearBottlingField.setText(yearB < 0 ? "" : Integer.toString(yearB));
+				yearReceiveField.setText(yearR < 0 ? "" : Integer.toString(yearR));
+				quantityField.setText(quantity < 0 ? "" : Integer.toString(quantity));
 
-				if (yearB == null) yearBottlingField.setText("");
-				else yearBottlingField.setText(Integer.toString(chosen.getYearBottling()));
-
-				if (yearR == null) yearReceiveField.setText("");
-				else yearReceiveField.setText(Integer.toString(chosen.getYearReceive()));
-
-				quantityField.setText(Integer.toString(chosen.getQuantity()));
+				card.show(bottomCardPanel, SEARCH);
+				showByButton.setSelected(false);
+				sortByButton.setSelected(false);
+				card.show(rightCardPanel, INFO);
+				if (showedBy != null) showedBy = null;
 			}
 		}
 	}
 
-	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! изменить
-
-
-	/////////////////////////////////////////////////////////////////////////переделать с использованием listModel
-	private void deleteChosen() {
-		bottles.deleteBottle(bottlesList.getSelectedValue());
-		bottlesList.setListData(bottles.getBottleArray());
-		clearAll();
-		showCount();
-	}
-
-	private void showCount() {
-		countButton.setText("Количество: " + bottles.getCount());
-	}
-
-	/////////////////////////////////////дополнить очищение всех новых полей
-	private void clearAll() {
-		imagePanel.setNullImage();
-		nameField.setText("");
-		typeField.setText("");
-		commentArea.setText("");
-		bottlesList.clearSelection();
-		imagePanel.repaint();
-	}
-
-	private void showFullList() {
-		/*if (fullListMark != 0) {
-			fullListMark = 0;
-			bottlesList.setListData(bottles.getBottleArray());
-			if (typesButtonMark != 0) {
-				//hideTypes();
+	//////////////////////////////////////////////////////////почему выдаёт не yes\no\cancel
+	//////////////////////////////////////////////////////////почему выходит, если нажать NO
+	private void saveAndExit() {
+		if (edited) {
+			int dialogResult = JOptionPane.showConfirmDialog(frame, "Сохранить изменения?", "Подтвердите действие",
+					JOptionPane.YES_NO_CANCEL_OPTION);
+			if (dialogResult == JOptionPane.CANCEL_OPTION) { return; }
+			else if (dialogResult == JOptionPane.YES_OPTION) {
+				try (ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream("database.ser"))) {
+					os.writeObject(bottles);
+				} catch (Exception ex) { ex.printStackTrace(); }
 			}
-		}*/
+		} else {
+			int dialogResult = JOptionPane.showConfirmDialog(frame, "Выйти из программы?", "Подтвердите действие",
+					JOptionPane.YES_NO_OPTION);
+			if (dialogResult == JOptionPane.NO_OPTION) { return; }
+		}
+		System.exit(0);
+	}
+
+	private void editEntry() {
+		BottleEntry selected = bottlesList.getSelectedValue();
+		if (selected != null) {
+			new EditFrame(bottles, selected);
+			frame.dispose();
+		}
+	}
+
+	private void deleteChosen() {
+		if (!bottlesList.getValueIsAdjusting()) {
+			BottleEntry del = bottlesList.getSelectedValue();
+			listModel.removeElement(del);
+			bottles.deleteBottle(del);
+			clearAll();
+			showCount();
+		}
 	}
 
 	private void search() {
-		/*String searchText = searchField.getText();
+		String searchText = searchField.getText();
 		if (searchText.length() == 0 || searchText.equals(NOT_FOUND_TEXT)) {
 			searchField.setText(ENTER_TEXT);
 		} else if (!searchText.equals(ENTER_TEXT)) {
@@ -578,15 +629,16 @@ public class MainFrame {
 			if (searchResult.length == 0) {
 				searchField.setText(NOT_FOUND_TEXT);
 			} else {
-				bottlesList.setListData(searchResult);
-				++fullListMark;
-				searchField.setText(ENTER_TEXT);
+				setBottleList(searchResult);
+				searchField.setText("Найдено: " + searchResult.length);
+				fullListButton.setEnabled(true);
 			}
-		}*/
+		}
 	}
 
-	private void autoEmptySearch(MouseEvent event) {
-		if (searchField.getText().equals(ENTER_TEXT) || searchField.getText().equals(NOT_FOUND_TEXT)) {
+	private void autoEmptySearch() {
+		String searchText = searchField.getText();
+		if (searchText.equals(ENTER_TEXT) || searchText.equals(NOT_FOUND_TEXT) || searchText.contains("Найдено")) {
 			searchField.setText("");
 		}
 	}
